@@ -1,5 +1,5 @@
 import { applyOp, calc, func, vm } from "./logic.js";
-export { ref } from "./logic.js";
+export { ref, effect, set, run } from "./logic.js";
 
 export const and = (...vms) => applyOp(vms, (a, b) => a && b, true);
 export const or = (...vms) => applyOp(vms, (a, b) => a || b, false);

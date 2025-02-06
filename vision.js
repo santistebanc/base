@@ -84,3 +84,228 @@ const ff = {
   },
   two: 5,
 };
+
+
+
+
+
+on(
+  gt(a, 5),
+  effect(() => {
+    console.log("is more");
+    return () => {
+      console.log("is less");
+    };
+  })
+);
+
+when(
+  changed(a),
+  effect((val) => console.log("a: ", val), a)
+);
+
+const main = ctx({ a: 5 })({
+  increase: set(ctx.a, sum(ctx.a, 1)),
+  area: mult(ctx.a, ctx.b),
+});
+
+const App = run(main, { b: 10 });
+
+const mainRes = {
+  [init]: { a: 5 },
+  [state]: { a: 5 },
+  [val]: self,
+  increase: {
+    [update]: {
+      a: {
+        [Symbol(func)]: {
+          label: "sum",
+        },
+        args: [{ [Symbol(path)]: "a" }, 1],
+      },
+    },
+  },
+  area: {
+    [Symbol(func)]: {
+      label: "mult",
+    },
+    args: [{ [Symbol(path)]: "a" }, { [Symbol(path)]: "b" }],
+  },
+};
+
+const second = {
+  a: 5,
+  increase: set(obj.a, sum(obj.a, 1)),
+  area: mult(obj.a, ctx.b),
+};
+
+const secondRes = {
+  [val]: self,
+  a: { [val]: 5, [current]: 5 },
+  increase: {
+    [update]: {
+      "obj.a": {
+        [Symbol(func)]: {
+          label: "sum",
+        },
+        args: [{ [Symbol(path)]: "obj.a" }, 1],
+      },
+    },
+  },
+  area: {
+    [Symbol(func)]: {
+      label: "mult",
+    },
+    args: [{ [Symbol(path)]: "obj.a" }, { [Symbol(path)]: "ctx.b" }],
+  },
+};
+
+run(
+  second,
+  when(
+    changed(obj.a),
+    effect((val) => console.log("a: ", val), obj.a)
+  )
+);
+
+withListener(
+  when(
+    changed(obj.a),
+    effect((val) => console.log("a: ", val), obj.a)
+  )
+)(second);
+
+const third = {
+  a: { one: 1, two: 2 },
+  increase: set(ctx.a.one, sum(ctx.a.one, 1)),
+  area: mult(ctx.a.one, ctx.a.two),
+  logA: when(
+    changed(ctx.a.one),
+    effect((val) => console.log("a: ", val), ctx.a.one)
+  ),
+};
+
+component(
+  {  a: { one: 1, two: 2 }, },
+  iff(
+    changed(ref.a.one),
+    effect((val) => console.log("a: ", val), ref.a.one)
+  ),
+  iff(
+    gt(ref.a.one, 5),
+    effect(() => {
+      console.log("is more");
+      return () => {
+        console.log("is less");
+      };
+    })
+  ),
+  {
+      increase: set(ref.a.one, sum(ref.a.one, 1)),
+      area: mult(ref.a.one, ref.a.two),
+    }
+);
+
+const fourth = {
+  [val]: self,
+  [effects]: {'ref.a.one': [{[effect]: (val) => console.log("a: ", val), args: [ref.a.one]}, vm([{[effect]: () => {
+      console.log("is more");
+      return () => {
+        console.log("is less");
+      };
+    }, args: []}],[gt(ref.a.one, 5)])]},
+  a: { [val]: self, one: { [val]: 1, [current]: 1 }, two: 2 },
+  [Symbol('anonym')]: vm([{[effect]: (val) => console.log("a: ", val), args: [ref.a.one]}],[changed(ref.a.one)]),
+  [Symbol('anonym')]: vm([{[effect]: () => {
+      console.log("is more");
+      return () => {
+        console.log("is less");
+      };
+    }, args: []}],[gt(ref.a.one, 5)]),
+  increase: {
+    [update]: {
+      "ref.a.one": {
+        [Symbol(func)]: {
+          label: "sum",
+        },
+        args: [{ [Symbol(path)]: "ref.a.one" }, 1],
+      },
+    },
+  },
+  area: {
+    [Symbol(func)]: {
+      label: "mult",
+    },
+    args: [{ [Symbol(path)]: "ref.a.one" }, 2],
+  },
+};
+
+component(
+{one: iff(cond, {a: 1, b: 2}, {a: 10, c: 7}), two: 2},
+iff(cond, {one: {a: 7}}, {one: {a: 100}, two: 200}),
+)
+
+const r = {one: {a:[1,10], b: [2,null], c: 7}, two: 2}
+
+const r2 = {one: {a:[7,100], b: null}, two: [null, 200]}
+
+const rr = {one: {a:[7,100], b: null}, two: [2, 200]}
+
+
+
+const final =  {
+  a: { one: 1, two: 2 },
+  increase: set(ctx.a.one, sum(ctx.a.one, 1)),
+  area: mult(ctx.a.one, ctx.a.two),
+  logA: iff(
+    changed(ctx.a.one),
+    effect((val) => console.log("a: ", val), ctx.a.one)
+  ),
+};
+
+
+
+
+const r = {
+  [val]: vm([SELF, SELF, 6, SELF], [cond1, cond2]),
+  a: vm([1, 7, null, null], [cond1, cond2]),
+  b: vm([2, { z: 99 }, null, 9], [cond1, cond2]),
+  c: vm(
+    [
+      null,
+      12,
+      null,
+      {
+        [val]: vm([2, SELF], [cond3]),
+        z: vm([null, 99], [cond3]),
+      },
+    ],
+    [cond1, cond2]
+  ),
+};
+
+const r2 = {
+  [val]: vm([SELF, SELF, 6, SELF], [cond1, cond2]),
+  a: vm([1, 7, null, null], [cond1, cond2]),
+  b: {
+    [val]: vm([2, SELF, null, 9], [cond1, cond2]),
+    z: vm([null, 99, null, null], [cond1, cond2]),
+  },
+  c: {
+    [val]: vm([null, 12, null, 2, null, 12, null, SELF], [cond1, cond2, cond3]),
+    z: vm(
+      [null, null, null, null, null, null, null, 99],
+      [cond1, cond2, cond3]
+    ),
+  },
+};
+
+const textbox = (text) => ({
+  text,
+  editText: action((args) => set(ref.text, args.newText)),
+  domRender: {
+    tag: "input",
+    attrs: { type: "text", value: ref.text },
+    listeners: { onchange: ref.editText },
+  },
+});

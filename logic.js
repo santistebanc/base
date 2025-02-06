@@ -1,28 +1,40 @@
-import { applyArgs } from "./utils.js";
-import { normalizeVms, makeVm, vmap } from "./vm.js";
+import {
+  effectKey,
+  funcKey,
+  getType,
+  isIrreductibleType,
+  pathKey,
+  runKey,
+  SELF,
+  updatesKey,
+  valKey,
+  varKey,
+} from "./types.js";
+import { applyArgs, isObject, mapEntries, mapReflectEntries } from "./utils.js";
+import { normalizeVms, makeVm } from "./vm.js";
+export { run } from "./run.js";
 
-const valKey = Symbol("val");
-const funcKey = Symbol("func");
-const pathKey = Symbol("path");
-const runKey = Symbol("run");
-
-const getType = (x) => {
-  if (x == null) return null;
-  if (x[varKey] !== undefined) return "var";
-  if (x[pathKey] !== undefined) return "ref";
-  if (x[vmap] !== undefined) return "vm";
-  if (x[valKey] !== undefined) return "val";
-  if (x[funcKey] !== undefined) return "calc";
-  if (x[runKey] !== undefined) return "func";
-  if (typeof x === "object") return "obj";
-  return "prim";
+const refProxy = (path = []) => {
+  const obj = (...args) => {
+    if (args.length === 0) throw "no ref passed";
+    return {
+      [pathKey]: [
+        ...path,
+        args.flat(Infinity).flatMap((arg) => arg.split(".")),
+      ],
+    };
+  };
+  obj[pathKey] = path;
+  return new Proxy(obj, {
+    get: (r, prop) => {
+      if (prop === pathKey) return r[pathKey];
+      return refProxy([...path, prop]);
+    },
+    apply: (r, _, args) => r(...args),
+  });
 };
 
-const isBasicType = (x) => ["prim", "ref", null].includes(getType(x));
-
-export const ref = (path) => {
-  return { [pathKey]: path };
-};
+export const ref = refProxy();
 
 const reduceVmDoables = (vals, conds) => {
   const newConds = [...conds.map((c) => [c])];
@@ -36,7 +48,7 @@ const reduceVmDoables = (vals, conds) => {
   return { reducedConds: newConds.flat(), reducedVals: newVals.flat() };
 };
 
-export const vm = (vals, conds) => {
+const vmParse = (vals, conds) => {
   const newVms = [];
   let hasVar = false;
   const { reducedConds, reducedVals } = reduceVmDoables(vals, conds);
@@ -55,25 +67,56 @@ export const vm = (vals, conds) => {
       newVms.push(makeVm([false, true], [v]));
       return Var(newVms.length);
     }
-    if (isBasicType(v) || getType(v) === "calc" || getType(v) === "var")
-      return v;
+    if (isIrreductibleType(v)) return v;
     throw "type not supported";
   });
   if (!hasVar) return makeVm(reducedVals, reducedConds);
   return mergeVms(makeVm(newVals, reducedConds), ...newVms);
 };
 
-const varKey = Symbol("var");
 const Var = (i) => ({ [varKey]: i });
 const mergeVms = (...vms) =>
-  applyOp(vms, (a, b, i) => (a?.[varKey] === i ? b : a), Var(0));
+  applyOp(
+    vms,
+    (a, b, i) => (isObject(a) && Object.hasOwn(a, varKey) && a[varKey] === i ? b : a),
+    Var(0)
+  );
+
+export const vm = (vals, conds) => {
+  const res = {
+    [Symbol.iterator]: function* () {
+      const max = Object.keys(this).reduce(
+        (m, k) => (!isNaN(k) && k > m ? k : m));
+      let i = 0;
+      while (i <= max) yield this[i++];
+    },
+  };
+  const usedKeys = new Set();
+  if (vals.every((v) => getType(v) !== "obj")) return vmParse(vals, conds);
+  vals.forEach((v) => {
+    const parsedV = getType(v) === "obj" ? v : { [valKey]: v };
+    mapReflectEntries(parsedV, ({ key }) => {
+      if (usedKeys.has(key)) return;
+      res[key] = vm(
+        vals.map((v) =>
+          getType(v) === "obj"
+            ? key === valKey && !Object.hasOwn(v, valKey)
+              ? SELF
+              : v[key]
+            : key === valKey
+            ? v
+            : undefined
+        ),
+        conds
+      );
+      usedKeys.add(key);
+    });
+  });
+  return res;
+};
 
 export const func = (label, run, returnType, reduceArgs) => {
   return { label, [runKey]: run, returnType, reduceArgs };
-};
-
-const val = (x) => {
-  return { [valKey]: x };
 };
 
 export const calc = (func, ...args) => {
@@ -88,7 +131,7 @@ export const calc = (func, ...args) => {
       hasVm = true;
       return arg;
     }
-    if (isBasicType(arg) || getType(arg) === "calc") return makeVm([arg], []);
+    if (isIrreductibleType(arg)) return makeVm([arg], []);
     throw "type not supported";
   });
   if (!hasVm) return { [funcKey]: func, args: reducedArgs };
@@ -106,4 +149,12 @@ export const applyOp = (vms, fn, def) => {
     results[i] = groups.map((g) => g[i % g.length]).reduce(fn, def);
   }
   return vm(results, allConds);
+};
+
+export const set = (...updates) => {
+  return { [updatesKey]: updates };
+};
+
+export const effect = (fn, args) => {
+  return { [effectKey]: fn, args };
 };

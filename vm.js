@@ -1,15 +1,15 @@
+import { vmKey } from "./types.js";
 import { groupIntoPairs, repeatArray, rotateArray } from "./utils.js";
 
-export const vmap = Symbol("vals");
 export const makeVm = (vals, conds = []) => {
-  return { [vmap]: vals, conds };
+  return { [vmKey]: vals, conds };
 };
 
 export const normalizeVms = (...vms) => {
   const allConds = [];
   const groups = vms.map((v) => {
     const indices = completeIndices(v.conds, allConds);
-    const vals = completeVals(v[vmap], allConds);
+    const vals = completeVals(v[vmKey], allConds);
     return recur(vals, indices, 0);
   });
   return { allConds, groups };

@@ -1,3 +1,6 @@
+export const isObject = (x) =>
+  x !== null && (Array.isArray(x) || typeof x === "object");
+
 export const makeArray = (size, func) => {
   return Array.apply(null, Array(size)).map((_, i) => func(i));
 };
@@ -30,5 +33,19 @@ export const repeatArray = (arr, times) => {
 
 export const applyArgs = (groups, fn) => {
   const max = Math.max(...groups.map((g) => g.length));
-  return [...Array(max)].map((_, i) => fn(...groups.map((g) => g[i % g.length])));
+  return [...Array(max)].map((_, i) =>
+    fn(...groups.map((g) => g[i % g.length]))
+  );
+};
+
+export const mapEntries = (obj, mapper) => {
+  return [...Object.getOwnPropertySymbols(obj), ...Object.keys(obj)].map(
+    (key, i, arr) => mapper({ key, val: obj[key], i, arr, obj })
+  );
+};
+
+export const mapReflectEntries = (obj, mapper) => {
+  return Reflect.ownKeys(obj).map((key, i, arr) =>
+    mapper({ key, val: obj[key], i, arr, obj })
+  );
 };
